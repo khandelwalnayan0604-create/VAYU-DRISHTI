@@ -1,0 +1,158 @@
+{
+  "_meta": {
+    "project": "VayuDrishti Nowcast",
+    "challenge_id": "SIH 2026 / SIH26072",
+    "purpose": "AIML-based nowcasting of thunderstorm and lightning using atmospheric observations (DWR, INSAT-3D, IITM lightning, NWP CAPE/shear)",
+    "file_convention": ".js files (React 19 + Tailwind CSS + Lucide + Recharts + Leaflet)",
+    "target_domains": ["Mumbai (MMR)", "Delhi NCR"],
+    "design_archetype": "The Performance Pro / Dark Operational Mission Control (Radar meteorology aesthetic)"
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Never build generic centered layouts or simplistic flat gradients. Create authentic atmospheric depth through dark obsidian surfaces, 1px luminous tactical borders, and meteorological scan lines.",
+    "Dark operational mission-control theme: Anchor base on Deep Obsidian (#070B12, #0A0F1D) with Pure White text, Amber/Cyan radar accents, and strict IMD Warning palette (Green #22C55E, Yellow #EAB308, Orange #F97316, Red #EF4444).",
+    "Truth in Data State is mandatory: Every card, header, map overlay, and API response must visibly display a state badge: [LIVE | DELAYED | HISTORICAL | TEST | SIMULATED]. Pilot runs are strictly SIMULATED / REPLAY DEMO.",
+    "All interactive and informational elements MUST include robust kebab-case 'data-testid' attributes (e.g., data-testid='role-toggle-operator', data-testid='timeline-play-btn', data-testid='alert-badge-red').",
+    "DO NOT use full-screen transparent backgrounds on dropdowns, modal sheets, popovers, or floating headers. Use backdrop-blur-md with rich bg-slate-950/85 and 1px border-cyan-500/20.",
+    "Bilingual support (English / Hindi 'वायुदृष्टि'): Provide dynamic language toggles across all alerts, public safety recommendations (NDMA/IMD lightning safety), and operational widgets.",
+    "Role toggle (Operator vs Public): Operator view renders multi-source health, provenance (latency, flags, coverage), TITAN storm cell tracks table, per-lead verification (POD/FAR/CSI/ETS/HSS/Brier), and vertical cross-section diagnostic. Public view renders high-contrast, simple safety cards, countdown to storm onset, and district risk."
+  ],
+  "typography": {
+    "font_family_recommendation": {
+      "display_heading": "Barlow Condensed, ui-sans-serif, system-ui, sans-serif",
+      "data_monospaced": "JetBrains Mono, ui-monospace, Menlo, Monaco, Consolas, monospace",
+      "body_ui": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif"
+    },
+    "hierarchy": {
+      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight uppercase",
+      "h2_section": "text-xl sm:text-2xl font-bold tracking-tight uppercase",
+      "h3_widget": "text-sm sm:text-base font-semibold tracking-wide uppercase text-slate-300",
+      "body": "text-sm leading-relaxed text-slate-300",
+      "caption_mono": "text-xs font-mono tracking-wider uppercase text-slate-400",
+      "metric_large": "text-2xl sm:text-3xl font-mono font-bold tracking-tight"
+    }
+  },
+  "colors": {
+    "base": {
+      "void_obsidian": "#050811",
+      "surface_radar_dark": "#0B1220",
+      "surface_card": "#0F172A",
+      "surface_elevated": "#1E293B",
+      "border_tactical": "#1E293B",
+      "border_active_cyan": "#06B6D4"
+    },
+    "text": {
+      "primary": "#F8FAFC",
+      "secondary": "#94A3B8",
+      "muted": "#64748B",
+      "accent_radar": "#38BDF8"
+    },
+    "imd_warning_palette": {
+      "green": { "label": "No Warning", "color": "#22C55E", "bg": "rgba(34, 197, 94, 0.15)", "border": "#16A34A" },
+      "yellow": { "label": "Watch / Be Updated", "color": "#EAB308", "bg": "rgba(234, 179, 8, 0.15)", "border": "#CA8A04" },
+      "orange": { "label": "Alert / Be Prepared", "color": "#F97316", "bg": "rgba(249, 115, 22, 0.15)", "border": "#EA580C" },
+      "red": { "label": "Warning / Take Action", "color": "#EF4444", "bg": "rgba(239, 68, 68, 0.18)", "border": "#DC2626" }
+    },
+    "reflectivity_dbz_scale": [
+      { "dbz": "<15", "color": "transparent", "label": "Clear / Cloud" },
+      { "dbz": "15-25", "color": "#38BDF8", "label": "Light Rain" },
+      { "dbz": "25-35", "color": "#22C55E", "label": "Moderate Rain" },
+      { "dbz": "35-45", "color": "#EAB308", "label": "Heavy Convective" },
+      { "dbz": "45-55", "color": "#F97316", "label": "Thunderstorm" },
+      { "dbz": "55-65", "color": "#EF4444", "label": "Severe Storm / Hail" },
+      { "dbz": ">65", "color": "#A855F7", "label": "Extreme Convection" }
+    ],
+    "data_state_badges": {
+      "simulated": { "bg": "bg-amber-500/20", "text": "text-amber-400", "border": "border-amber-500/50" },
+      "test": { "bg": "bg-indigo-500/20", "text": "text-indigo-400", "border": "border-indigo-500/50" },
+      "live": { "bg": "bg-emerald-500/20", "text": "text-emerald-400", "border": "border-emerald-500/50" },
+      "delayed": { "bg": "bg-rose-500/20", "text": "text-rose-400", "border": "border-rose-500/50" },
+      "historical": { "bg": "bg-sky-500/20", "text": "text-sky-400", "border": "border-sky-500/50" }
+    }
+  },
+  "layout_and_grids": {
+    "header": "Sticky z-50 h-16 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md px-4 flex items-center justify-between",
+    "main_container": "flex flex-col lg:flex-row h-[calc(100vh-4rem)] overflow-hidden bg-[#050811]",
+    "map_viewport": "flex-1 relative h-[55vh] lg:h-full bg-[#070B14] overflow-hidden",
+    "timeline_dock": "absolute bottom-3 left-3 right-3 lg:left-6 lg:right-6 z-[1000] bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-2xl",
+    "sidebar_operator": "w-full lg:w-[480px] xl:w-[540px] h-full overflow-y-auto border-l border-slate-800/80 bg-slate-950/70 p-4 space-y-4",
+    "public_view_layout": "max-w-4xl mx-auto p-4 space-y-6"
+  },
+  "key_components": [
+    {
+      "name": "VayuDrishtiHeader",
+      "path": "frontend/src/components/VayuDrishtiHeader.js",
+      "role": "Global brand header with domain selector (Mumbai vs Delhi NCR), IST clock, role toggle (Operator / Public), language switcher (EN / HI), and primary SIMULATED badge."
+    },
+    {
+      "name": "RadarNowcastMap",
+      "path": "frontend/src/components/RadarNowcastMap.js",
+      "role": "Leaflet map centered on selected domain with custom dark cartography, togglable layers (Doppler reflectivity rings/sweep, INSAT-3D infrared cloud top, IITM lightning strike pulses, NWP CAPE contours, storm motion vectors, GeoJSON risk warning districts)."
+    },
+    {
+      "name": "ForecastTimelineBar",
+      "path": "frontend/src/components/ForecastTimelineBar.js",
+      "role": "0-180 minute timeline scrub bar with 15-minute resolution (T0, T+15, T+30 ... T+180 min). Play/pause animation loop, scrub slider, and lead-time alert indicator."
+    },
+    {
+      "name": "OperatorSourceHealth",
+      "path": "frontend/src/components/OperatorSourceHealth.js",
+      "role": "Live data provenance telemetry panel: DWR (Mumbai Colaba/Delhi Palam), INSAT-3D (KALPANA-IR), IITM Lightning Network, NCMRWF NWP CAPE, showing latency, quality flags, packet count, and state badges."
+    },
+    {
+      "name": "StormTrackingTable",
+      "path": "frontend/src/components/StormTrackingTable.js",
+      "role": "TITAN/SCIT cell tracking table with Cell ID, Max dBZ, VIL (kg/m²), Centroid lat/lon, Speed (km/h), Bearing, and Split/Merge probability."
+    },
+    {
+      "name": "VerificationMetricsPanel",
+      "path": "frontend/src/components/VerificationMetricsPanel.js",
+      "role": "Per-lead nowcast calibration curves and contingency scores (POD 0.88, FAR 0.16, CSI 0.76, ETS 0.69, HSS 0.74, Brier Score 0.08) with interactive Recharts reliability diagram."
+    },
+    {
+      "name": "VerticalCrossSection",
+      "path": "frontend/src/components/VerticalCrossSection.js",
+      "role": "Radar reflectivity cross-section diagnostic tool (0-16 km altitude vs 0-80 km radial distance) highlighting freezing level (4.5 km) and storm top."
+    },
+    {
+      "name": "PublicSafetyAlertView",
+      "path": "frontend/src/components/PublicSafetyAlertView.js",
+      "role": "Public citizen safety dashboard: Immediate NDMA/IMD lightning safety rules (30-30 rule, avoid open fields, unplug appliances), simplified risk level, countdown to safe conditions, and verified CAP 1.2 alert broadcast."
+    }
+  ],
+  "image_urls": {
+    "radar_dome_installation": {
+      "url": "https://images.unsplash.com/photo-1771974301591-af40b9b996d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHw0fHxyYWRhciUyMHdlYXRoZXIlMjBkaXNwbGF5fGVufDB8fHx8MTc5MDY4MTQ3M3ww&ixlib=rb-4.1.0&q=85",
+      "description": "IMD Doppler Weather Radar station tower and radome",
+      "category": "infrastructure_provenance"
+    },
+    "severe_lightning_event": {
+      "url": "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwzfHxsaWdodG5pbmclMjB0aHVuZGVyc3Rvcm0lMjBza3l8ZW58MHx8fHwxNzkwNjgxNDc3fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Intense lightning storm front over urban cityscape",
+      "category": "public_hazard_hero"
+    }
+  },
+  "testing_attributes": {
+    "instruction": "Every button, toggle, tab, slider, and badge MUST have a data-testid attribute formatted as lowercase kebab-case.",
+    "mandatory_ids": [
+      "header-brand-title",
+      "domain-select-dropdown",
+      "role-toggle-operator",
+      "role-toggle-public",
+      "lang-toggle-btn",
+      "timeline-slider",
+      "timeline-play-btn",
+      "timeline-step-forward",
+      "timeline-step-backward",
+      "map-layer-toggle-radar",
+      "map-layer-toggle-lightning",
+      "map-layer-toggle-satellite",
+      "map-layer-toggle-vectors",
+      "map-layer-toggle-riskzones",
+      "source-health-panel",
+      "verification-metrics-tab",
+      "cross-section-modal-btn",
+      "public-safety-card",
+      "cap-alert-broadcast-box"
+    ]
+  }
+}

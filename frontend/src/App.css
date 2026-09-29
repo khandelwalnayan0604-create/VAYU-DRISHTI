@@ -1,0 +1,35 @@
+.App { min-height: 100vh; }
+
+.font-display { font-family: "Barlow Condensed", ui-sans-serif, system-ui, sans-serif; }
+
+/* Leaflet dark tuning */
+.leaflet-container { background: #070B14 !important; font-family: "Inter", sans-serif; }
+.leaflet-control-attribution {
+  background: rgba(11,18,32,0.8) !important;
+  color: #64748B !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: #38BDF8 !important; }
+.leaflet-bar a {
+  background: #0F172A !important;
+  color: #E2E8F0 !important;
+  border-color: #1E293B !important;
+}
+.leaflet-bar a:hover { background: #1E293B !important; }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: #0F172A !important;
+  color: #E2E8F0 !important;
+  border: 1px solid #1E293B;
+}
+.leaflet-popup-content { font-size: 11px; }
+.leaflet-tooltip {
+  background: #0F172A !important;
+  border: 1px solid #1E293B !important;
+  color: #E2E8F0 !important;
+  font-size: 11px;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0B1220; }
+::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }
