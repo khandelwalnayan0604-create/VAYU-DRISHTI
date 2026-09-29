@@ -109,6 +109,8 @@ def connector_status(domain: str) -> List[Dict[str, Any]]:
             "mode": _MODE,
             "data_state": "simulated" if _MODE == "simulated" else _MODE,
             "status": status,
+            "source_time": source_time.replace(microsecond=0).isoformat(),
+            "retrieval_time": retrieval_time.replace(microsecond=0).isoformat(),
             "source_time_utc": source_time.replace(microsecond=0).isoformat(),
             "source_time_ist": source_time.astimezone(IST).replace(microsecond=0).isoformat(),
             "retrieval_time_utc": retrieval_time.replace(microsecond=0).isoformat(),

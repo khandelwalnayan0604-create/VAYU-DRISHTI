@@ -1,0 +1,32 @@
+{
+  "summary": "Full backend + frontend test of VayuDrishti Nowcast. 12/12 backend pytest cases pass (health, domains, connectors, nowcast frames, storm-tracks, cross-section, verification, alerts sorting + polygon + cap_status=Test, CAP 1.2 XML, ack + audit persistence, safety EN/HI, 404). Frontend loads Esri dark Leaflet map with radar/lightning/vectors/tracks/riskzones overlays, all 15 target data-testids present. Timeline slider + play toggle, op tabs (sources/cells/verify), storm-row click opens cross-section-modal (MUM-C01, echo-top and freezing-level rendered) and closes. Alert focus/ack/cap-download buttons functional (cap href points to /api/alerts/{id}/cap.xml). Language toggle injects Devanagari text. Domain dropdown reloads Delhi/Mumbai. Role toggle to public shows public-safety-card + onset-countdown + cap-alert-broadcast-box; toggle back to operator works. All data is truthfully labeled SIMULATED with prominent disclaimer banner.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/connectors/status", "issue": "Spec requested fields 'source_time' and 'retrieval_time'; backend returns 'source_time_utc'/'source_time_ist'/'retrieval_time_utc' instead. Frontend and CAP work fine, but field naming deviates from the review spec. Consider aliasing or documenting."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Operator Storm Cells tab", "issues": ["Recharts warning: container has width(-1)/height(-1) when tab is hidden — cosmetic console warning only, chart renders correctly when tab is active"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Optional) Add 'source_time' / 'retrieval_time' aliases to connector status payload to match spec verbiage; current *_utc/_ist fields are richer but differ in name."
+  ],
+  "critical_code_review_comments": [
+    "server.py: alert audit map iterates async cursor inside dict comprehension using `async for` — fine but note it fetches unbounded records per /alerts call. Consider limiting or projecting.",
+    "server.py: _build_alerts recomputes risk_zones for all lead_times on every /alerts, /safety, /cap.xml, /ack call — deterministic simulator so cheap, but if replaced with real model, add caching.",
+    "Uses deprecated `@app.on_event('shutdown')` — should migrate to FastAPI lifespan.",
+    "CORS allow_origins defaults to '*' with allow_credentials=True which browsers reject; acceptable for demo but flag for prod."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Ack audit record created for VD-mumbai-MUM-C03 (operator=TEST_operator) via test_ack_and_audit; persists in MongoDB alert_audit collection.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/backend_test.py, 12 tests, run: pytest backend/tests/backend_test.py -v. Public URL from REACT_APP_BACKEND_URL. Mumbai currently yields worst_severity=red with 3 alerts (MUM-C01/02/03). All data SIMULATED. Frontend data-testids all present and wired."
+}
