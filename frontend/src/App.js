@@ -115,6 +115,10 @@ export default function App() {
   }, [domains, domain, lang]);
 
   const worstSeverity = alerts[0]?.severity || "green";
+  const nwpConn = connectors.find((c) => c.key === "nwp");
+  const nwpState = nwpConn?.data_state || "simulated";
+  const nwpBannerLabel = nwpState === "live" ? "LIVE NOAA GFS"
+    : nwpState === "delayed" ? "DELAYED NOAA GFS" : "simulated fallback";
 
   return (
     <div className="App">
@@ -123,11 +127,14 @@ export default function App() {
         domain={domain} setDomain={setDomain} domains={domains} istClock={clock}
       />
 
-      {/* Global disclosure ribbon */}
+      {/* Global disclosure ribbon — honest MIXED data state */}
       <div className="flex items-center gap-2 px-3 sm:px-5 py-1.5 bg-amber-500/10 border-b border-amber-500/25 text-[11px] text-amber-200/90">
         <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
         <span className="truncate">
-          {nowcast?.disclaimer || "SIMULATED / REPLAY DEMO — not operational IMD guidance. c4dl-multi (Swiss) is a research baseline only."}
+          <span className={nwpState === "live" || nwpState === "delayed" ? "text-emerald-300 font-semibold" : "text-amber-200 font-semibold"}>
+            NWP: {nwpBannerLabel}
+          </span>
+          <span className="text-amber-200/80"> · radar / satellite / lightning: SIMULATED — not operational IMD guidance. c4dl-multi (Swiss) is a research baseline only.</span>
         </span>
       </div>
 
@@ -146,7 +153,7 @@ export default function App() {
                 frame={frame} tracks={activeTracks} layers={layers} basemap={basemap} onSelectCell={openCrossSection}
               />
             )}
-            <LayerControl t={t} layers={layers} toggle={(k) => setLayers((l) => ({ ...l, [k]: !l[k] }))} basemap={basemap} setBasemap={setBasemap} />
+            <LayerControl t={t} layers={layers} toggle={(k) => setLayers((l) => ({ ...l, [k]: !l[k] }))} basemap={basemap} setBasemap={setBasemap} nwpState={nwpState} />
 
             {/* model version chip */}
             <div className="absolute top-3 right-3 z-[1000] bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 py-1.5 max-w-[240px]">

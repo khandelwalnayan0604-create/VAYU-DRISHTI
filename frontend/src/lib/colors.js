@@ -52,7 +52,8 @@ export const IR_SCALE = [
 
 // NWP CAPE (J/kg) instability.
 export function capeColor(cape) {
-  if (cape < 500) return "transparent";
+  if (cape < 100) return "transparent";
+  if (cape < 500) return "#14532D";
   if (cape < 1000) return "#15803D";
   if (cape < 1500) return "#65A30D";
   if (cape < 2500) return "#CA8A04";
@@ -61,6 +62,7 @@ export function capeColor(cape) {
 }
 
 export const CAPE_SCALE = [
+  { label: "100–500", color: "#14532D" },
   { label: "500–1000", color: "#15803D" },
   { label: "1000–1500", color: "#65A30D" },
   { label: "1500–2500", color: "#CA8A04" },

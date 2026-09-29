@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Query
 from fastapi.responses import Response
+from fastapi.concurrency import run_in_threadpool
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -13,6 +14,7 @@ from pydantic import BaseModel, Field
 
 import nowcast as ng
 import connectors as conn
+import gfs
 from cap import build_cap_xml, cap_status
 
 ROOT_DIR = Path(__file__).parent
@@ -61,7 +63,8 @@ async def health(domain: Optional[str] = None):
     src = {}
     for d in domains:
         if d in ng.DOMAINS:
-            statuses = conn.connector_status(d)
+            nb = gfs.get_nwp_bundle(d, allow_fetch=False)  # cache-only, no network
+            statuses = conn.connector_status(d, nb)
             src[d] = {
                 "ok": sum(1 for s in statuses if s["status"] == "ok"),
                 "total": len(statuses),
@@ -96,7 +99,10 @@ async def domains():
 @api_router.get("/connectors/status")
 async def connectors_status(domain: str = Query(...)):
     _domain_or_404(domain)
-    return {"domain": domain, "data_state": "simulated", "connectors": conn.connector_status(domain)}
+    nb = await run_in_threadpool(gfs.get_nwp_bundle, domain, True)
+    statuses = conn.connector_status(domain, nb)
+    real = [s["key"] for s in statuses if s.get("real")]
+    return {"domain": domain, "data_state": "mixed", "real_sources": real, "connectors": statuses}
 
 
 # --------------------------------------------------------------------------
@@ -106,15 +112,27 @@ async def connectors_status(domain: str = Query(...)):
 async def nowcast_frames(domain: str = Query(...)):
     d = _domain_or_404(domain)
     times = ng.now_times()
+    bundle = await run_in_threadpool(gfs.get_nwp_bundle, domain, True)
+    nwp_real = bool(bundle and bundle.get("available"))
     frames = []
     for t in ng.LEAD_TIMES:
+        if nwp_real:
+            pl = bundle["per_lead"][t]
+            nwp = {**pl, "data_state": bundle["state"], "real": True,
+                   "attribution": bundle["attribution"], "model": bundle["model"],
+                   "source_time_utc": bundle["source_time_utc"]}
+        else:
+            nwp = ng.nwp_frame(domain, t)
+            nwp["data_state"] = "simulated"
+            nwp["real"] = False
+            nwp["attribution"] = "SIMULATED synthetic NWP (GFS fetch unavailable)"
         frames.append({
             "lead_time_min": t,
             "valid_utc": times["issue_utc"],
             "valid_ist": times["issue_ist"],
             "reflectivity": ng.reflectivity_frame(domain, t),
             "satellite": ng.satellite_ir_frame(domain, t),
-            "nwp": ng.nwp_frame(domain, t),
+            "nwp": nwp,
             "lightning": ng.lightning_frame(domain, t),
             "motion_vectors": ng.motion_vectors(domain, t),
             "risk_zones": ng.risk_zones(domain, t),
@@ -127,7 +145,9 @@ async def nowcast_frames(domain: str = Query(...)):
         "zoom": d["zoom"],
         "lead_times": ng.LEAD_TIMES,
         "model_version": ng.MODEL_VERSION,
-        "data_state": "simulated",
+        "data_state": "mixed",
+        "nwp_state": bundle["state"] if nwp_real else "simulated",
+        "nwp_attribution": bundle["attribution"] if nwp_real else "SIMULATED synthetic NWP",
         "issue_times": times,
         "disclaimer": DISCLAIMER,
         "frames": frames,
@@ -319,6 +339,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def warm_gfs_cache():
+    async def _warm():
+        for d in ng.DOMAINS.keys():
+            try:
+                ok = await run_in_threadpool(gfs.warm_cache, d)
+                logger.info("GFS warm %s: %s", d, "ok" if ok else "failed")
+            except Exception as e:
+                logger.warning("GFS warm %s error: %s", d, e)
+    import asyncio
+    asyncio.create_task(_warm())
 
 
 @app.on_event("shutdown")

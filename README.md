@@ -37,17 +37,30 @@ Backend, frontend and MongoDB are supervisor-managed and already running.
 - API docs: `${REACT_APP_BACKEND_URL}/docs`
 - Backend tests: `cd /app && pytest backend/tests/backend_test.py -v`
 
-## Data-availability table (honest)
+## Data-availability table (honest — MIXED state)
 
 | Source | Connector | State in this build | Authorized-live path |
 |---|---|---|---|
-| IMD Doppler Weather Radar (S-band) | `dwr` | **SIMULATED** | Requires IMD authorization; set `VD_DATA_MODE=live` + connector creds (server-side only) |
-| INSAT-3D / MOSDAC (IR/WV) | `insat` | **SIMULATED** | MOSDAC/ISRO terms + API |
-| IITM / ENTLN lightning | `lightning` | **SIMULATED** | Provider agreement |
-| NWP (GFS/ERA5/NCMRWF CAPE/CIN/PW/shear) | `nwp` | **SIMULATED** | GFS public / ERA5 CDS / IMD-authorized |
+| **NWP (NOAA GFS 0.25°)** | `nwp` | **REAL — `live`/`delayed`** (CAPE + 0-6 km bulk shear + steering wind), fetched from Open-Meteo's free GFS endpoint, per-lead across the timeline. Falls back to synthetic and relabels `simulated` if unreachable. | Already live; no key needed. Public-domain NOAA data via Open-Meteo (CC-BY 4.0). |
+| IMD Doppler Weather Radar (S-band) | `dwr` | **SIMULATED** feed + authorized connector `disabled — awaiting authorized credentials` | Set `VD_DWR_CREDENTIALS` (IMD data-supply agreement) |
+| INSAT-3D / MOSDAC (IR/WV) | `insat` | **SIMULATED** feed + authorized connector `disabled — awaiting authorized credentials` | Set `VD_INSAT_CREDENTIALS` (MOSDAC login) |
+| Lightning (IITM / ILDN) | `lightning` | **SIMULATED** feed + authorized connector `disabled — awaiting authorized credentials` | Set `VD_LIGHTNING_CREDENTIALS` (IITM/ILDN agreement) |
 
-Each connector is independently disable-able (`VD_DISABLE_DWR=1`, etc.) and exposes a
-health record: source time, retrieval time, latency, coverage, quality flags, mode, error.
+The global banner reflects the live mix, e.g. *"NWP: LIVE NOAA GFS · radar / satellite / lightning: SIMULATED"*.
+
+## How to enable each authorized source (Phase 2)
+
+Enabling a pending source is a **configuration step, not a rebuild** — set the
+credential env var (server-side only, never exposed to the browser) and restart:
+
+| Source | Env var | Provider access route | License / attribution |
+|---|---|---|---|
+| IMD DWR radar | `VD_DWR_CREDENTIALS` | IMD data-supply agreement / MoES; RCTLS DWR product access | © India Meteorological Department |
+| INSAT-3D | `VD_INSAT_CREDENTIALS` | MOSDAC portal login (mosdac.gov.in) → INSAT-3D product order/API | © ISRO / MOSDAC |
+| Lightning | `VD_LIGHTNING_CREDENTIALS` | IITM Pune / India Lightning Detection Network (ILDN) agreement | © IITM Pune / ILDN |
+| NWP (GFS) | *(none — already live)* | Open-Meteo GFS endpoint (free) | NOAA GFS public domain; Open-Meteo CC-BY 4.0 |
+
+Each connector remains independently disable-able via `VD_DISABLE_<KEY>=1`.
 
 ## Switching to authorized live connectors (documented, not enabled)
 

@@ -1,124 +1,172 @@
 """
-Source connectors — each returns a health/status record and is independently
-disable-able. In this demo build every connector runs in SIMULATED / REPLAY
-mode: it does NOT contact IMD, MOSDAC/INSAT, IITM/ENTLN or any NWP endpoint.
-Switching to authorized live connectors is an env-driven operation documented
-in the README; credentials are never exposed to the browser.
+Source connectors with honest, per-source data-state.
+
+Phase 1 reality:
+- NWP is REAL (NOAA GFS via Open-Meteo) — labelled `live`/`delayed` with real
+  source/retrieval times and latency, or relabelled `simulated` on fallback.
+- Radar (IMD DWR), Satellite (INSAT-3D/MOSDAC) and Lightning (ILDN/IITM) feed
+  the map from SIMULATED synthetic data and additionally expose an
+  authorized-real connector that is `disabled — awaiting authorized credentials`.
+  Enabling them later is a configuration step (env creds), not a rebuild.
 """
 from __future__ import annotations
 
 import os
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from nowcast import DOMAINS
+import gfs
 
 IST = timezone(timedelta(hours=5, minutes=30))
-
-# A connector is "enabled" unless disabled via env: VD_DISABLE_<KEY>=1
-_CONNECTOR_DEFS = [
-    {
-        "key": "dwr",
-        "name": "IMD Doppler Weather Radar (DWR)",
-        "product": "S-band reflectivity + radial velocity",
-        "channels": ["reflectivity_dbz", "radial_velocity", "quality_flags"],
-        "coverage_note": "Per-domain radar site (see domain).",
-        "nominal_latency_s": 300,
-        "cadence_min": 10,
-        "license": "IMD authorization required for operational feed",
-    },
-    {
-        "key": "insat",
-        "name": "INSAT-3D / MOSDAC Satellite",
-        "product": "IR/WV brightness temperature + cloud-top cooling rate",
-        "channels": ["ir_bt", "wv_bt", "cooling_rate"],
-        "coverage_note": "Full-disk; sampled to domain.",
-        "nominal_latency_s": 1800,
-        "cadence_min": 30,
-        "license": "MOSDAC/ISRO terms of use",
-    },
-    {
-        "key": "lightning",
-        "name": "IITM / ENTLN Lightning Network",
-        "product": "CG/IC strike geolocation, polarity, peak current",
-        "channels": ["strike_lat_lon", "type", "peak_current_kA", "age_min"],
-        "coverage_note": "Network-dependent detection efficiency.",
-        "nominal_latency_s": 60,
-        "cadence_min": 1,
-        "license": "IITM/authorized provider agreement",
-    },
-    {
-        "key": "nwp",
-        "name": "NWP (GFS / ERA5 / NCMRWF)",
-        "product": "CAPE, CIN, PW, 0-6km shear, steering wind",
-        "channels": ["cape", "cin", "pw", "shear_0_6km", "steering_wind"],
-        "coverage_note": "Model grid regridded to domain.",
-        "nominal_latency_s": 5400,
-        "cadence_min": 360,
-        "license": "GFS public / ERA5 CDS / IMD-authorized",
-    },
-]
-
-_MODE = os.environ.get("VD_DATA_MODE", "simulated")  # simulated | replay | live
+_MODE = os.environ.get("VD_DATA_MODE", "simulated")
 
 
 def _disabled(key: str) -> bool:
     return os.environ.get(f"VD_DISABLE_{key.upper()}", "0") == "1"
 
 
-def connector_status(domain: str) -> List[Dict[str, Any]]:
-    if domain not in DOMAINS:
-        return []
+def _authorized_enabled(key: str) -> bool:
+    """A real Indian source turns on only when its credential env var is set."""
+    return bool(os.environ.get(f"VD_{key.upper()}_CREDENTIALS"))
+
+
+# Authorized-ready (Phase 2) source metadata — disabled until credentials exist.
+_AUTHORIZED = {
+    "dwr": {
+        "name": "IMD Doppler Weather Radar (DWR)",
+        "product": "S-band reflectivity + radial velocity",
+        "channels": ["reflectivity_dbz", "radial_velocity", "quality_flags"],
+        "cadence_min": 10,
+        "provider": "India Meteorological Department (IMD)",
+        "access_route": "IMD data-supply agreement / MoES; RCTLS DWR product access",
+        "license": "IMD authorization required (attribution: © IMD)",
+        "attribution": "© India Meteorological Department",
+        "quality_flags": ["clutter_filtered", "beam_blockage_corrected"],
+    },
+    "insat": {
+        "name": "INSAT-3D / MOSDAC Satellite",
+        "product": "IR/WV brightness temperature + cloud-top cooling rate",
+        "channels": ["ir_bt", "wv_bt", "cooling_rate"],
+        "cadence_min": 30,
+        "provider": "ISRO / MOSDAC",
+        "access_route": "MOSDAC portal login (mosdac.gov.in) → INSAT-3D product order/API",
+        "license": "MOSDAC/ISRO terms of use (attribution: ISRO/MOSDAC)",
+        "attribution": "© ISRO / MOSDAC",
+        "quality_flags": ["parallax_uncorrected"],
+    },
+    "lightning": {
+        "name": "Lightning Network (IITM / ILDN)",
+        "product": "CG/IC strike geolocation, polarity, peak current",
+        "channels": ["strike_lat_lon", "type", "peak_current_kA", "age_min"],
+        "cadence_min": 1,
+        "provider": "IITM Pune / India Lightning Detection Network",
+        "access_route": "IITM/ILDN data agreement (authorized provider)",
+        "license": "IITM/authorized provider agreement",
+        "attribution": "© IITM Pune / ILDN",
+        "quality_flags": ["network_de_variable"],
+    },
+}
+
+
+def _sim_record(key: str, domain: str) -> Dict[str, Any]:
+    """A radar/satellite/lightning source: SIMULATED feed + pending real connector."""
+    d = DOMAINS[domain]
+    meta = _AUTHORIZED[key]
+    now = datetime.now(timezone.utc)
+    src = now - timedelta(minutes=meta["cadence_min"])
+    enabled = not _disabled(key)
+    authorized_on = _authorized_enabled(key)
+    return {
+        "key": key,
+        "name": meta["name"],
+        "product": meta["product"],
+        "channels": meta["channels"],
+        "coverage": d["radar"] if key == "dwr" else f"{d['name']} domain",
+        "domain": domain,
+        "enabled": enabled,
+        "real": False,
+        "mode": "simulated",
+        "data_state": "simulated" if enabled else "disabled",
+        "status": "simulated" if enabled else "disabled",
+        "source_time": src.replace(microsecond=0).isoformat(),
+        "source_time_utc": src.replace(microsecond=0).isoformat(),
+        "source_time_ist": src.astimezone(IST).replace(microsecond=0).isoformat(),
+        "retrieval_time": now.replace(microsecond=0).isoformat(),
+        "retrieval_time_utc": now.replace(microsecond=0).isoformat(),
+        "latency_s": meta["cadence_min"] * 60,
+        "nominal_latency_s": meta["cadence_min"] * 60,
+        "cadence_min": meta["cadence_min"],
+        "quality_flags": meta["quality_flags"],
+        "license": meta["license"],
+        "attribution": meta["attribution"],
+        "authorized_provider": meta["provider"],
+        "access_route": meta["access_route"],
+        "authorized_status": ("enabled" if authorized_on
+                              else "disabled — awaiting authorized credentials"),
+        "error": None if enabled else "Connector disabled via configuration.",
+    }
+
+
+def _nwp_record(domain: str, bundle: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     d = DOMAINS[domain]
     now = datetime.now(timezone.utc)
-    out = []
-    # deterministic-ish but time-based freshness
-    for i, c in enumerate(_CONNECTOR_DEFS):
-        enabled = not _disabled(c["key"])
-        # synthetic source/retrieval timestamps
-        src_age = c["cadence_min"] + (i * 2)
-        source_time = now - timedelta(minutes=src_age)
-        retrieval_time = now - timedelta(seconds=max(5, c["nominal_latency_s"] // 60))
-        latency_s = round((retrieval_time - source_time).total_seconds(), 0)
-        stale = latency_s > c["nominal_latency_s"] * 3
-        quality_flags = []
-        if c["key"] == "dwr":
-            quality_flags = ["clutter_filtered", "beam_blockage_corrected"]
-        elif c["key"] == "insat":
-            quality_flags = ["parallax_uncorrected"]
-        elif c["key"] == "lightning":
-            quality_flags = ["network_de_variable"]
-        elif c["key"] == "nwp":
-            quality_flags = ["coarse_grid_regridded"]
-
-        if not enabled:
-            status = "disabled"
-        elif stale:
-            status = "stale"
-        else:
-            status = "ok"
-
-        out.append({
-            "key": c["key"],
-            "name": c["name"],
-            "product": c["product"],
-            "channels": c["channels"],
-            "coverage": d["radar"] if c["key"] == "dwr" else c["coverage_note"],
-            "domain": domain,
-            "enabled": enabled,
-            "mode": _MODE,
-            "data_state": "simulated" if _MODE == "simulated" else _MODE,
-            "status": status,
-            "source_time": source_time.replace(microsecond=0).isoformat(),
-            "retrieval_time": retrieval_time.replace(microsecond=0).isoformat(),
-            "source_time_utc": source_time.replace(microsecond=0).isoformat(),
-            "source_time_ist": source_time.astimezone(IST).replace(microsecond=0).isoformat(),
-            "retrieval_time_utc": retrieval_time.replace(microsecond=0).isoformat(),
-            "latency_s": latency_s,
-            "nominal_latency_s": c["nominal_latency_s"],
-            "cadence_min": c["cadence_min"],
-            "quality_flags": quality_flags,
-            "license": c["license"],
-            "error": None if enabled else "Connector disabled via configuration.",
+    base = {
+        "key": "nwp",
+        "name": "NWP — NOAA GFS (real)",
+        "product": "CAPE + 0-6 km bulk shear + steering wind",
+        "channels": ["cape", "shear_0_6km", "wind_1000hPa", "wind_500hPa"],
+        "coverage": f"GFS 0.25° regridded to {d['name']} (6×6)",
+        "domain": domain,
+        "cadence_min": 360,
+        "nominal_latency_s": 5 * 3600,
+        "quality_flags": ["gfs_0p25deg", "coarse_regridded"],
+        "license": "NOAA GFS public domain; Open-Meteo CC-BY 4.0",
+        "attribution": gfs.ATTRIBUTION,
+        "authorized_provider": "NOAA / NCEP (via Open-Meteo)",
+        "access_route": "Open-Meteo GFS endpoint (free, no key)",
+        "authorized_status": "enabled",
+        "real": True,
+        "enabled": True,
+    }
+    if bundle and bundle.get("available"):
+        base.update({
+            "mode": "live",
+            "data_state": bundle["state"],           # live | delayed
+            "status": "ok",
+            "source_time": bundle["source_time_utc"],
+            "source_time_utc": bundle["source_time_utc"],
+            "source_time_ist": bundle["source_time_ist"],
+            "retrieval_time": bundle["retrieval_time_utc"],
+            "retrieval_time_utc": bundle["retrieval_time_utc"],
+            "latency_s": bundle["latency_s"],
+            "model": bundle["model"],
+            "error": None,
         })
-    return out
+    else:
+        base.update({
+            "mode": "simulated",
+            "data_state": "simulated",
+            "status": "stale",
+            "real": False,
+            "source_time": now.replace(microsecond=0).isoformat(),
+            "source_time_utc": now.replace(microsecond=0).isoformat(),
+            "source_time_ist": now.astimezone(IST).replace(microsecond=0).isoformat(),
+            "retrieval_time": now.replace(microsecond=0).isoformat(),
+            "retrieval_time_utc": now.replace(microsecond=0).isoformat(),
+            "latency_s": 0,
+            "model": "synthetic fallback",
+            "error": "GFS fetch unavailable — using SIMULATED synthetic NWP fallback.",
+        })
+    return base
+
+
+def connector_status(domain: str, nwp_bundle: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    if domain not in DOMAINS:
+        return []
+    return [
+        _nwp_record(domain, nwp_bundle),
+        _sim_record("dwr", domain),
+        _sim_record("insat", domain),
+        _sim_record("lightning", domain),
+    ]

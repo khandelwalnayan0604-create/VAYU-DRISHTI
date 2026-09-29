@@ -1,5 +1,6 @@
 import React from "react";
 import { Radar, Satellite, Zap, MoveRight, Route, Shield, Wind } from "lucide-react";
+import { STATE_BADGE } from "../lib/colors";
 
 const LAYER_DEFS = [
   { key: "radar", icon: Radar, testid: "map-layer-toggle-radar", labelKey: "radar", color: "text-emerald-400" },
@@ -11,7 +12,8 @@ const LAYER_DEFS = [
   { key: "riskzones", icon: Shield, testid: "map-layer-toggle-riskzones", labelKey: "riskzones", color: "text-rose-400" },
 ];
 
-export default function LayerControl({ t, layers, toggle, basemap, setBasemap }) {
+export default function LayerControl({ t, layers, toggle, basemap, setBasemap, nwpState }) {
+  const nwpBadge = nwpState === "live" || nwpState === "delayed";
   return (
     <div
       data-testid="layer-control"
@@ -43,6 +45,14 @@ export default function LayerControl({ t, layers, toggle, basemap, setBasemap })
             >
               <Icon className={`w-3.5 h-3.5 ${on ? l.color : "text-slate-600"}`} />
               <span className="flex-1 text-left truncate">{t(l.labelKey)}</span>
+              {l.key === "nwp" && nwpState && (
+                <span
+                  data-testid="nwp-layer-state-badge"
+                  className={`text-[8px] font-mono font-bold uppercase px-1 py-0.5 rounded border mr-1 ${STATE_BADGE[nwpState] || STATE_BADGE.simulated}`}
+                >
+                  {nwpBadge ? nwpState : "sim"}
+                </span>
+              )}
               <span className={`w-7 h-3.5 rounded-full relative transition-colors ${on ? "bg-cyan-500/60" : "bg-slate-700"}`}>
                 <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all ${on ? "left-4" : "left-0.5"}`} />
               </span>
