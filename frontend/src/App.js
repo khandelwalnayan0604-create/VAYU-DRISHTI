@@ -41,7 +41,7 @@ export default function App() {
   const [opTab, setOpTab] = useState("sources");
   const [clock, setClock] = useState(istNow());
   const [layers, setLayers] = useState({
-    radar: true, satellite: false, lightning: true, vectors: true, tracks: true, riskzones: true,
+    radar: true, satellite: false, nwp: false, lightning: true, vectors: true, tracks: true, riskzones: true,
   });
 
   const t = useT(lang);

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import L from "leaflet";
-import { dbzColor, severityColor } from "../lib/colors";
+import { dbzColor, severityColor, irColor, capeColor } from "../lib/colors";
 
 // Vanilla-Leaflet map (robust across React versions). Redraws overlay layers
 // whenever the active forecast frame, layer toggles, or tracks change.
@@ -29,6 +29,7 @@ export default function RadarNowcastMap({
 
     groupsRef.current = {
       satellite: L.layerGroup().addTo(map),
+      nwp: L.layerGroup().addTo(map),
       radar: L.layerGroup().addTo(map),
       riskzones: L.layerGroup().addTo(map),
       tracks: L.layerGroup().addTo(map),
@@ -83,12 +84,26 @@ export default function RadarNowcastMap({
       L.rectangle(b, { stroke: false, fillColor: dbzColor(c.dbz), fillOpacity: 0.55 }).addTo(g.radar);
     });
 
-    // SATELLITE cloud-top (dbz proxy, cool grey-blue, broad + low opacity)
+    // SATELLITE — INSAT-3D IR cloud-top brightness temperature (distinct channel)
     g.satellite.clearLayers();
-    (frame.reflectivity || []).filter((c) => c.dbz > 18).forEach((c) => {
+    (frame.satellite || []).forEach((c) => {
       const b = [[c.lat - c.dlat / 2, c.lon - c.dlon / 2], [c.lat + c.dlat / 2, c.lon + c.dlon / 2]];
-      const shade = Math.min(230, 120 + c.dbz);
-      L.rectangle(b, { stroke: false, fillColor: `rgb(${shade},${shade},${shade + 15})`, fillOpacity: 0.28 }).addTo(g.satellite);
+      L.rectangle(b, { stroke: false, fillColor: irColor(c.bt), fillOpacity: 0.42 }).addTo(g.satellite);
+    });
+
+    // NWP — CAPE instability field + 0-6 km shear/steering vectors
+    g.nwp.clearLayers();
+    const nwp = frame.nwp || {};
+    (nwp.cape || []).forEach((c) => {
+      const b = [[c.lat - c.dlat / 2, c.lon - c.dlon / 2], [c.lat + c.dlat / 2, c.lon + c.dlon / 2]];
+      L.rectangle(b, { stroke: false, fillColor: capeColor(c.cape), fillOpacity: 0.3 })
+        .bindTooltip(`CAPE ${c.cape} J/kg`, { direction: "top", sticky: true })
+        .addTo(g.nwp);
+    });
+    (nwp.shear_vectors || []).forEach((v) => {
+      L.polyline([[v.lat, v.lon], [v.lat2, v.lon2]], { color: "#A3E635", weight: 1.5, opacity: 0.85 })
+        .bindTooltip(`0–6 km shear ${v.shear_ms} m/s`, { direction: "top" }).addTo(g.nwp);
+      L.circleMarker([v.lat, v.lon], { radius: 2, color: "#A3E635", weight: 1, fillColor: "#A3E635", fillOpacity: 1 }).addTo(g.nwp);
     });
 
     // RISK ZONES
@@ -139,6 +154,7 @@ export default function RadarNowcastMap({
 
     setVis("radar", layers.radar);
     setVis("satellite", layers.satellite);
+    setVis("nwp", layers.nwp);
     setVis("riskzones", layers.riskzones);
     setVis("tracks", layers.tracks);
     setVis("vectors", layers.vectors);

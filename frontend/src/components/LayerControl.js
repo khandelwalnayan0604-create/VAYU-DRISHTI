@@ -1,9 +1,10 @@
 import React from "react";
-import { Radar, Satellite, Zap, MoveRight, Route, Shield } from "lucide-react";
+import { Radar, Satellite, Zap, MoveRight, Route, Shield, Wind } from "lucide-react";
 
 const LAYER_DEFS = [
   { key: "radar", icon: Radar, testid: "map-layer-toggle-radar", labelKey: "radar", color: "text-emerald-400" },
   { key: "satellite", icon: Satellite, testid: "map-layer-toggle-satellite", labelKey: "satellite", color: "text-sky-400" },
+  { key: "nwp", icon: Wind, testid: "map-layer-toggle-nwp", labelKey: "nwp", color: "text-lime-400" },
   { key: "lightning", icon: Zap, testid: "map-layer-toggle-lightning", labelKey: "lightning", color: "text-amber-400" },
   { key: "vectors", icon: MoveRight, testid: "map-layer-toggle-vectors", labelKey: "vectors", color: "text-cyan-400" },
   { key: "tracks", icon: Route, testid: "map-layer-toggle-tracks", labelKey: "tracks", color: "text-fuchsia-400" },

@@ -113,6 +113,8 @@ async def nowcast_frames(domain: str = Query(...)):
             "valid_utc": times["issue_utc"],
             "valid_ist": times["issue_ist"],
             "reflectivity": ng.reflectivity_frame(domain, t),
+            "satellite": ng.satellite_ir_frame(domain, t),
+            "nwp": ng.nwp_frame(domain, t),
             "lightning": ng.lightning_frame(domain, t),
             "motion_vectors": ng.motion_vectors(domain, t),
             "risk_zones": ng.risk_zones(domain, t),

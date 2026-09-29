@@ -48,6 +48,83 @@ DOMAINS: Dict[str, Dict[str, Any]] = {
         "districts": ["New Delhi", "Gurugram", "Faridabad", "Ghaziabad", "Gautam Buddh Nagar", "Sonipat"],
         "zoom": 8,
     },
+    "kolkata": {
+        "id": "kolkata",
+        "name": "Kolkata",
+        "name_hi": "कोलकाता",
+        "center": [22.5726, 88.3639],
+        "bbox": [21.75, 87.55, 23.35, 89.15],
+        "radar": "IMD DWR Kolkata — S-band",
+        "radar_site": [22.6500, 88.4500],
+        "districts": ["Kolkata", "Howrah", "North 24 Parganas", "South 24 Parganas", "Hooghly", "Nadia"],
+        "zoom": 8,
+    },
+    "bhubaneswar": {
+        "id": "bhubaneswar",
+        "name": "Bhubaneswar / Paradip",
+        "name_hi": "भुवनेश्वर / पारादीप",
+        "center": [20.2961, 85.8245],
+        "bbox": [19.50, 85.00, 20.95, 86.95],
+        "radar": "IMD DWR Paradip / Gopalpur — S-band",
+        "radar_site": [20.3160, 86.6100],
+        "districts": ["Khordha", "Cuttack", "Puri", "Jagatsinghpur", "Kendrapara"],
+        "zoom": 8,
+    },
+    "guwahati": {
+        "id": "guwahati",
+        "name": "Guwahati",
+        "name_hi": "गुवाहाटी",
+        "center": [26.1445, 91.7362],
+        "bbox": [25.45, 90.95, 26.85, 92.55],
+        "radar": "IMD DWR Guwahati — S-band",
+        "radar_site": [26.1030, 91.5850],
+        "districts": ["Kamrup Metropolitan", "Kamrup", "Nalbari", "Barpeta", "Darrang"],
+        "zoom": 8,
+    },
+    "chennai": {
+        "id": "chennai",
+        "name": "Chennai",
+        "name_hi": "चेन्नई",
+        "center": [13.0827, 80.2707],
+        "bbox": [12.35, 79.55, 13.80, 80.95],
+        "radar": "IMD DWR Chennai — S-band",
+        "radar_site": [13.0800, 80.2800],
+        "districts": ["Chennai", "Chengalpattu", "Kancheepuram", "Tiruvallur", "Ranipet"],
+        "zoom": 8,
+    },
+    "hyderabad": {
+        "id": "hyderabad",
+        "name": "Hyderabad",
+        "name_hi": "हैदराबाद",
+        "center": [17.3850, 78.4867],
+        "bbox": [16.65, 77.70, 18.10, 79.25],
+        "radar": "IMD DWR Hyderabad (Shamshabad) — S-band",
+        "radar_site": [17.2400, 78.4300],
+        "districts": ["Hyderabad", "Rangareddy", "Medchal-Malkajgiri", "Sangareddy", "Vikarabad"],
+        "zoom": 8,
+    },
+    "bengaluru": {
+        "id": "bengaluru",
+        "name": "Bengaluru",
+        "name_hi": "बेंगलुरु",
+        "center": [12.9716, 77.5946],
+        "bbox": [12.25, 76.85, 13.70, 78.30],
+        "radar": "IMD DWR Bengaluru — S-band",
+        "radar_site": [13.2000, 77.7100],
+        "districts": ["Bengaluru Urban", "Bengaluru Rural", "Ramanagara", "Kolar", "Tumakuru"],
+        "zoom": 8,
+    },
+    "kochi": {
+        "id": "kochi",
+        "name": "Kochi",
+        "name_hi": "कोच्चि",
+        "center": [9.9312, 76.2673],
+        "bbox": [9.20, 75.55, 10.65, 76.95],
+        "radar": "IMD DWR Kochi — S-band",
+        "radar_site": [10.1500, 76.4000],
+        "districts": ["Ernakulam", "Thrissur", "Alappuzha", "Kottayam", "Idukki"],
+        "zoom": 8,
+    },
 }
 
 
@@ -178,6 +255,101 @@ def motion_vectors(domain: str, t: int) -> List[Dict[str, Any]]:
             "speed_kmh": c["speed_kmh"], "bearing": c["bearing"],
         })
     return vecs
+
+
+# ---------------------------------------------------------------------------
+# INSAT-3D IR cloud-top brightness temperature (distinct satellite channel).
+# Cold cloud tops (deep convection / anvils) spread wider than the radar core.
+# ---------------------------------------------------------------------------
+def satellite_ir_frame(domain: str, t: int) -> List[Dict[str, Any]]:
+    d = DOMAINS[domain]
+    minlat, minlon, maxlat, maxlon = d["bbox"]
+    n = 30
+    lats = np.linspace(minlat, maxlat, n)
+    lons = np.linspace(minlon, maxlon, n)
+    cells = _cells(domain)
+    rng = _rng(domain, f"ir{t}")
+    noise = rng.normal(0, 1.3, size=(n, n))
+    dlat_step = (maxlat - minlat) / (n - 1)
+    dlon_step = (maxlon - minlon) / (n - 1)
+    out = []
+    for i, la in enumerate(lats):
+        for j, lo in enumerate(lons):
+            cooling = 0.0
+            for c in cells:
+                clat, clon = _cell_center_at(c, t)
+                dbz = _cell_dbz_at(c, t)
+                anvil = c["sigma"] * 2.4  # broader than radar core
+                depth = max(0.0, (dbz - 26)) * 2.5  # K of cloud-top cooling
+                dist2 = (la - clat) ** 2 + (lo - clon) ** 2
+                cooling = max(cooling, depth * math.exp(-dist2 / (2 * anvil ** 2)))
+            bt = 292.0 - cooling + noise[i, j]  # K
+            bt = max(198.0, min(300.0, bt))
+            if bt <= 268:  # only render meaningful cloud
+                out.append({
+                    "lat": round(float(la), 4), "lon": round(float(lo), 4),
+                    "bt": round(float(bt), 1),
+                    "dlat": round(dlat_step, 4), "dlon": round(dlon_step, 4),
+                })
+    return out
+
+
+# ---------------------------------------------------------------------------
+# NWP CAPE (instability) field + 0-6 km shear / steering vectors.
+# ---------------------------------------------------------------------------
+def nwp_frame(domain: str, t: int) -> Dict[str, Any]:
+    d = DOMAINS[domain]
+    minlat, minlon, maxlat, maxlon = d["bbox"]
+    n = 16
+    lats = np.linspace(minlat, maxlat, n)
+    lons = np.linspace(minlon, maxlon, n)
+    cells = _cells(domain)
+    rng = _rng(domain, f"nwp{t}")
+    dlat_step = (maxlat - minlat) / (n - 1)
+    dlon_step = (maxlon - minlon) / (n - 1)
+    cape_cells = []
+    cape_grid = np.zeros((n, n))
+    for i, la in enumerate(lats):
+        for j, lo in enumerate(lons):
+            # background instability gradient (more unstable to the south)
+            base = 850 + 1300 * ((maxlat - la) / (maxlat - minlat)) + 350 * math.sin((lo - minlon) * 3.0)
+            enh = 0.0
+            for c in cells:
+                # instability pools ahead (downstream) of each storm
+                alat = c["lat0"] + c["dlat"] * (t + 30)
+                alon = c["lon0"] + c["dlon"] * (t + 30)
+                dist2 = (la - alat) ** 2 + (lo - alon) ** 2
+                enh = max(enh, 1500 * math.exp(-dist2 / (2 * (c["sigma"] * 2.5) ** 2)))
+            cape = max(0.0, min(4200.0, base + enh + rng.normal(0, 110)))
+            cape_grid[i, j] = cape
+            if cape >= 500:
+                cape_cells.append({
+                    "lat": round(float(la), 4), "lon": round(float(lo), 4),
+                    "cape": int(cape),
+                    "dlat": round(dlat_step, 4), "dlon": round(dlon_step, 4),
+                })
+    steer_dlat = float(np.mean([c["dlat"] for c in cells]))
+    steer_dlon = float(np.mean([c["dlon"] for c in cells]))
+    mag = math.hypot(steer_dlat, steer_dlon) or 1.0
+    vectors = []
+    for i in range(1, n, 4):
+        for j in range(1, n, 4):
+            la = float(lats[i]); lo = float(lons[j])
+            shear = round(9 + (cape_grid[i, j] / 4200.0) * 20 + rng.uniform(-2, 2), 1)
+            scale = 0.14
+            vectors.append({
+                "lat": round(la, 4), "lon": round(lo, 4),
+                "lat2": round(la + (steer_dlat / mag) * scale, 4),
+                "lon2": round(lo + (steer_dlon / mag) * scale, 4),
+                "shear_ms": shear,
+            })
+    return {
+        "cape": cape_cells,
+        "shear_vectors": vectors,
+        "cape_max": int(cape_grid.max()),
+        "units": {"cape": "J/kg", "shear": "m/s (0-6 km)"},
+        "data_state": "simulated",
+    }
 
 
 # ---------------------------------------------------------------------------
