@@ -33,6 +33,8 @@ _TTL_S = 900          # cache a domain's raw pull for 15 min
 _TIMEOUT_S = 12
 
 _CACHE: Dict[str, Any] = {}          # domain -> {"ts": epoch, "raw": {...}}
+_NEG_CACHE: Dict[str, float] = {}    # domain -> epoch of last failed fetch
+_NEG_TTL_S = 60                      # suppress re-fetch for 60s after a failure
 _LOCKS: Dict[str, threading.Lock] = {}
 
 
@@ -62,6 +64,10 @@ def _fetch_raw(domain: str) -> Optional[Dict[str, Any]]:
     cached = _CACHE.get(domain)
     if cached and now - cached["ts"] < _TTL_S:
         return cached["raw"]
+    # negative-cache: after a failure, skip the network (and its timeouts) for a while
+    neg = _NEG_CACHE.get(domain)
+    if neg and now - neg < _NEG_TTL_S:
+        return None
     with _lock(domain):
         cached = _CACHE.get(domain)
         if cached and time.time() - cached["ts"] < _TTL_S:
@@ -86,9 +92,11 @@ def _fetch_raw(domain: str) -> Optional[Dict[str, Any]]:
                 raw = {"points": pts, "dlat": dlat, "dlon": dlon, "locs": locs,
                        "retrieval_utc": datetime.now(timezone.utc).replace(microsecond=0)}
                 _CACHE[domain] = {"ts": time.time(), "raw": raw}
+                _NEG_CACHE.pop(domain, None)
                 return raw
             except Exception:
                 time.sleep(0.8 * (attempt + 1))
+        _NEG_CACHE[domain] = time.time()
         return None
 
 

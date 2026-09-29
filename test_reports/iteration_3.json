@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 3 — validated the FIRST real feed (NOAA GFS via Open-Meteo). Backend: 21/21 pytest tests passed in test_gfs_real.py — /connectors/status returns nwp with real=true, data_state='live', status='ok', numeric latency, attribution mentioning NOAA GFS/Open-Meteo, and real source_time timestamps across 4 domains; the three other connectors (dwr/insat/lightning) all report real=false, data_state='simulated', authorized_status='disabled — awaiting authorized credentials' with authorized_provider/access_route/attribution present. /nowcast/frames exposes top-level nwp_state and nwp_attribution, each frame.nwp has cape (with lat/lon/dlat/dlon), shear_vectors, cape_max, units, and valid_utc that monotonically increases with lead_time_min. Startup log shows all 9 domains warmed successfully (one transient 'GFS warm kochi: failed' recovered on the following pass — acceptable per spec). Frontend: global banner shows 'NWP: LIVE NOAA GFS' in emerald; the map layer row shows nwp-layer-state-badge=LIVE; Source Health panel shows the NWP card with a green REAL tag, LIVE badge and NOAA GFS attribution, and the three other cards each show the lock line 'disabled — awaiting authorized credentials' with proper provider/access-route (data-testid connector-authorized-{dwr,insat,lightning} all present and visible). Domain switching to chennai / delhi / kolkata preserved LIVE state and REAL tag, no console errors (only the pre-existing Canvas2D willReadFrequently perf warning). CAPE cells + shear vectors render when nwp layer toggled on. Fallback branch (state='simulated', status='stale', error string, real=false, attribution='SIMULATED synthetic NWP...') is correctly implemented in server.py:_nowcast_frames + connectors._nwp_record — read and confirmed but not exercised because GFS was reachable throughout the test window.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Map viewport", "issues": ["Pre-existing Canvas2D willReadFrequently perf warning (Leaflet preferCanvas) — non-blocking, carried from iter2."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_gfs_real.py",
+    "/app/test_reports/pytest/pytest_results_iter3.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "gfs._fetch_raw uses a per-domain lock but the cache read outside the lock still races with the first fetch — negligible in practice (first request may re-check).",
+    "server.py holds the NWP bundle reference in each frame with the same per_lead dict — safe (readonly) but if any mutation is later added to nwp downstream it will leak across frames. Consider shallow-copying the per_lead entry.",
+    "connectors._nwp_record.base['real']=True is set before the fallback branch which then resets it to False — works correctly today but is easy to overlook in future edits; consider building the two records fully separately.",
+    "Open-Meteo external dependency has no rate-limit / circuit breaker beyond 3 retries; sustained upstream downtime will hit every /nowcast/frames call with the 12s timeout × 3. Consider negative-cache when _fetch_raw returns None (e.g. suppress retries for 60s)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_gfs_real.py (new)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% for tested flows"},
+  "test_credentials": "N/A — no auth in this app.",
+  "seed_data_creation": "None — GFS is a live external feed; simulated layers are deterministic per-domain seed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Three backend test files now: /app/backend/tests/backend_test.py (iter1), test_domains_satellite_nwp.py (iter2), test_gfs_real.py (iter3 — the NEW real GFS feed). Use domain-select-dropdown for header domain switcher in Playwright (NOT domain-select). nwp-layer-state-badge, connector-authorized-{dwr,insat,lightning}, connector-{nwp,dwr,insat,lightning} testids all wired. External dep: Open-Meteo GFS — if transiently unreachable the app should show nwp_state='simulated' with honest labels; that is passing behavior, not a bug. Fallback branch not exercised in this run because upstream was reachable.",
+  "rca of the issue": "N/A — no bugs found."
+}

@@ -42,6 +42,21 @@ ROC/PR-AUC, baselines); CAP 1.2 Test; EN/HI; c4dl-multi treated as non-deployed 
   THIRD_PARTY_NOTICES, docs/data_contracts.md. Backend contract tests (12/12 pass).
 - E2E tested: backend 100%, frontend 100%.
 
+## Iteration 2 (all 9 domains + real satellite/NWP channels)
+- Added Kolkata, Bhubaneswar, Guwahati, Chennai, Hyderabad, Bengaluru, Kochi.
+- Distinct INSAT-3D IR cloud-top channel + NWP CAPE/shear channel + layer toggle.
+- Satellite basemap switcher (Esri World Imagery / OSM / Dark). Tested 21/21.
+
+## Iteration 3 (FIRST REAL feed — NOAA GFS, 2026-06)
+- Live NOAA GFS connector (`gfs.py`) via Open-Meteo (free, no key): real CAPE +
+  0-6 km bulk shear + steering wind per domain, per-lead across the 0-180 min
+  timeline; 15-min cache, 3x retry, 60s negative-cache, startup warm for 9 domains.
+- Honest MIXED state: NWP reads `live`/`delayed` with real timestamps + NOAA/Open-Meteo
+  attribution; synthetic fallback relabels `simulated` on failure. Radar/INSAT/lightning
+  stay SIMULATED and expose authorized connectors `disabled — awaiting credentials`
+  (enable via `VD_<KEY>_CREDENTIALS`). Banner + layer badge + source-health reflect the mix.
+- Docs refreshed (availability table + how-to-enable each authorized source). Tested 21/21.
+
 ## Backlog (prioritized)
 - **P1**: Add remaining pilot domains (Kolkata, Bhubaneswar, Guwahati, Chennai,
   Hyderabad, Bengaluru, Kochi); WebSocket live event stream; INSAT IR layer as distinct
