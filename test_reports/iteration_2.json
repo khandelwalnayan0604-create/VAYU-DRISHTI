@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 2 retest of VayuDrishti Nowcast — validated 9-domain expansion + new INSAT-3D IR satellite and NWP CAPE/shear channels. Backend: 21/21 pytest tests passed (new file test_domains_satellite_nwp.py). Frontend: dropdown lists all 9 domains, domain switching (chennai/hyderabad/kolkata/guwahati) reloads map and alerts correctly, satellite + nwp layer toggles render visually distinct overlays (IR cloud tops, CAPE fill, shear vectors), timeline play advances frames with new layers active. Only transient console noise found (single initial 'Failed to fetch' recovered on retry + one Canvas2D perf warning).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Initial page load", "issue": "Occasional transient 'TypeError: Failed to fetch' on first useEffect (getJSON /domains) that self-recovers on subsequent loads; no user-visible impact but worth adding a retry.", "affected_selectors": ["N/A (bundle.js:getJSON)"]}
+    ],
+    "design_issues": [
+      {"screen": "Map viewport", "issues": ["Canvas2D warning: 'Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true' — leaflet preferCanvas perf hint, non-blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_domains_satellite_nwp.py",
+    "/app/test_reports/pytest/pytest_results_iter2.xml"
+  ],
+  "action_items": [
+    "(Optional/low-priority) Add small retry/backoff in frontend getJSON to eliminate the transient initial 'Failed to fetch' seen once at cold page load."
+  ],
+  "critical_code_review_comments": [
+    "Backend /api/alerts uses async iteration over db.alert_audit.find in a dict comprehension — works but keys off a['alert_id'] while acks are matched by a['id']; acknowledged flag will fail if audit records lack alert_id key. Currently upsert stores alert_id, so this works, but relies on upsert always writing alert_id.",
+    "RadarNowcastMap uses preferCanvas:true — good for perf but causes SVG path selectors to return 0 in tests; recommend keeping data-testid-based verification instead of counting DOM paths.",
+    "nowcast.py DOMAINS dict is 100+ lines; consider extracting to a JSON/yaml file to keep server code focused (file still well under 700 lines so not urgent)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_domains_satellite_nwp.py (new)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% for tested flows"},
+  "test_credentials": "N/A — no auth in this app",
+  "seed_data_creation": "None; all data is deterministically simulated per domain seed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend has two test files: /app/backend/tests/backend_test.py (iter 1 smoke) and /app/backend/tests/test_domains_satellite_nwp.py (iter 2 — 9 domains + IR/NWP). Both are pytest-ready. REACT_APP_BACKEND_URL loading is handled by reading /app/frontend/.env inside the new test file. Leaflet uses preferCanvas so overlay counts via SVG selectors return 0 — verify via screenshots or data-testid instead. LayerControl testids: map-layer-toggle-{radar,satellite,nwp,lightning,vectors,tracks,riskzones}. Timeline: timeline-play-btn, timeline-lead-value.",
+  "rca of the issue": "N/A — no bugs blocking. Transient 'Failed to fetch' on cold start appears to be a one-off network hiccup; not reproducible on subsequent loads."
+}

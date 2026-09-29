@@ -16,7 +16,7 @@ export default function RadarNowcastMap({
     if (mapRef.current || !elRef.current) return;
     const map = L.map(elRef.current, {
       center, zoom, zoomControl: true, attributionControl: true,
-      preferCanvas: true,
+      preferCanvas: true, renderer: L.canvas({ padding: 0.5 }),
     });
     L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
