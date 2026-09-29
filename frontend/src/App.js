@@ -43,6 +43,7 @@ export default function App() {
   const [layers, setLayers] = useState({
     radar: true, satellite: false, nwp: false, lightning: true, vectors: true, tracks: true, riskzones: true,
   });
+  const [basemap, setBasemap] = useState("satellite");
 
   const t = useT(lang);
   const playRef = useRef(null);
@@ -142,10 +143,10 @@ export default function App() {
               <RadarNowcastMap
                 center={nowcast.center} zoom={nowcast.zoom} bbox={nowcast.bbox}
                 radarSite={domains.find((d) => d.id === domain)?.radar_site}
-                frame={frame} tracks={activeTracks} layers={layers} onSelectCell={openCrossSection}
+                frame={frame} tracks={activeTracks} layers={layers} basemap={basemap} onSelectCell={openCrossSection}
               />
             )}
-            <LayerControl t={t} layers={layers} toggle={(k) => setLayers((l) => ({ ...l, [k]: !l[k] }))} />
+            <LayerControl t={t} layers={layers} toggle={(k) => setLayers((l) => ({ ...l, [k]: !l[k] }))} basemap={basemap} setBasemap={setBasemap} />
 
             {/* model version chip */}
             <div className="absolute top-3 right-3 z-[1000] bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 py-1.5 max-w-[240px]">

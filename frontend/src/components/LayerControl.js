@@ -11,13 +11,25 @@ const LAYER_DEFS = [
   { key: "riskzones", icon: Shield, testid: "map-layer-toggle-riskzones", labelKey: "riskzones", color: "text-rose-400" },
 ];
 
-export default function LayerControl({ t, layers, toggle }) {
+export default function LayerControl({ t, layers, toggle, basemap, setBasemap }) {
   return (
     <div
       data-testid="layer-control"
       className="absolute top-3 left-3 z-[1000] bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-xl p-2 shadow-2xl w-[190px]"
     >
-      <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500 px-1.5 pb-1.5">{t("layers")}</div>
+      <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500 px-1.5 pb-1">{t("layers")}</div>
+      <div className="px-1.5 pb-2">
+        <select
+          data-testid="basemap-select"
+          value={basemap}
+          onChange={(e) => setBasemap(e.target.value)}
+          className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-[11px] rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+        >
+          <option value="satellite">Satellite (Esri)</option>
+          <option value="osm">Standard OSM</option>
+          <option value="dark">Dark Tactical</option>
+        </select>
+      </div>
       <div className="space-y-0.5">
         {LAYER_DEFS.map((l) => {
           const Icon = l.icon;

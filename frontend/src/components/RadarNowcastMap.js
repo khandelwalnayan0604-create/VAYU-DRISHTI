@@ -5,11 +5,12 @@ import { dbzColor, severityColor, irColor, capeColor } from "../lib/colors";
 // Vanilla-Leaflet map (robust across React versions). Redraws overlay layers
 // whenever the active forecast frame, layer toggles, or tracks change.
 export default function RadarNowcastMap({
-  center, zoom, bbox, radarSite, frame, tracks, layers, onSelectCell,
+  center, zoom, bbox, radarSite, frame, tracks, layers, basemap, onSelectCell,
 }) {
   const elRef = useRef(null);
   const mapRef = useRef(null);
   const groupsRef = useRef({});
+  const baseRef = useRef([]);
 
   // init once
   useEffect(() => {
@@ -18,14 +19,6 @@ export default function RadarNowcastMap({
       center, zoom, zoomControl: true, attributionControl: true,
       preferCanvas: true, renderer: L.canvas({ padding: 0.5 }),
     });
-    L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-      { attribution: "Esri Dark Gray Canvas · SIMULATED demo overlays", maxZoom: 16 }
-    ).addTo(map);
-    L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
-      { maxZoom: 16, opacity: 0.9 }
-    ).addTo(map);
 
     groupsRef.current = {
       satellite: L.layerGroup().addTo(map),
@@ -42,6 +35,30 @@ export default function RadarNowcastMap({
     return () => { map.remove(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // basemap switcher (tiles render in tilePane, always beneath vector overlays)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    baseRef.current.forEach((l) => map.removeLayer(l));
+    baseRef.current = [];
+    const add = (url, opts) => { const l = L.tileLayer(url, opts); l.addTo(map); l.bringToBack(); baseRef.current.push(l); };
+    if (basemap === "osm") {
+      add("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        { attribution: "© OpenStreetMap · SIMULATED demo overlays", maxZoom: 19 });
+    } else if (basemap === "dark") {
+      add("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        { attribution: "Esri Dark Gray Canvas · SIMULATED demo overlays", maxZoom: 16 });
+      add("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 16, opacity: 0.9 });
+    } else {
+      // satellite (Esri World Imagery) + place/boundary labels — key-free
+      add("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        { attribution: "Esri World Imagery · SIMULATED demo overlays", maxZoom: 18 });
+      add("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 18, opacity: 0.9 });
+    }
+  }, [basemap]);
 
   // recenter on domain change
   useEffect(() => {
